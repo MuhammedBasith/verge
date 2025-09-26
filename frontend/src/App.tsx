@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { PromptInputBox } from './components/ui/ai-prompt-box';
 import { MessageSquare, RotateCcw, Clock, X } from 'lucide-react';
 import axios from 'axios';
+import { renderMarkdown } from './utils/markdown';
 import {
   getCurrentSession,
   setCurrentSession,
@@ -245,7 +246,7 @@ function App() {
           // Generic error - add error message
           const errorMessage: Message = {
             messageId: `error-${Date.now()}`,
-            content: "Sorry, I couldn't process your request. Please try again.",
+            content: "Sorry, I couldn't process your request. Please try again.\n\nHere's an example of how I format responses:\n\n* **News Analysis:** I can provide structured summaries with bullet points and **bold formatting** for key information.",
             sender: 'assistant',
             timestamp: new Date().toISOString(),
           };
@@ -255,7 +256,7 @@ function App() {
         // Non-axios error
         const errorMessage: Message = {
           messageId: `error-${Date.now()}`,
-          content: "Sorry, I couldn't process your request. Please try again.",
+          content: "Sorry, I couldn't process your request. Please try again.\n\nHere's an example of how I format responses:\n\n* **Breaking News:** I analyze current events with clear formatting\n* **Key Points:** Important information is **highlighted** for easy reading",
           sender: 'assistant',
           timestamp: new Date().toISOString(),
         };
@@ -476,7 +477,7 @@ function App() {
         {/* Chat Container */}
         <div className={`bg-black/10 backdrop-blur-sm border border-white/20 rounded-3xl p-4 md:p-6 shadow-2xl ${isViewingOldChat ? 'opacity-90' : ''}`}>
           {/* Messages Area */}
-          <div className="min-h-[250px] max-h-[350px] md:min-h-[300px] md:max-h-[400px] overflow-y-auto space-y-3 mb-4 md:mb-6 scrollbar-hide">
+          <div className="min-h-[350px] max-h-[450px] md:min-h-[400px] md:max-h-[500px] overflow-y-auto space-y-3 mb-4 md:mb-6 scrollbar-hide scroll-smooth">
             {messages.length === 0 ? (
               <div className="text-center text-white/60 py-20">
                 <p className="text-lg mb-2">Start a conversation</p>
@@ -495,9 +496,12 @@ function App() {
                         }
                       `}
                     >
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                        {message.content}
-                      </p>
+                      <div className="text-sm leading-relaxed">
+                        {message.sender === 'assistant' ? 
+                          renderMarkdown(message.content) : 
+                          <p className="whitespace-pre-wrap">{message.content}</p>
+                        }
+                      </div>
                       <div className={`text-xs mt-2 opacity-60 ${message.sender === 'user' ? 'text-gray-600' : 'text-white/60'}`}>
                         {new Date(message.timestamp).toLocaleTimeString([], { 
                           hour: '2-digit', 
@@ -542,7 +546,7 @@ function App() {
 
       {/* Previous Chats Modal */}
       {showPreviousChats && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
           {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-gradient-to-br from-black/20 via-black/30 to-black/40 backdrop-blur-sm"
@@ -550,7 +554,7 @@ function App() {
           />
           
           {/* Modal */}
-          <div className="relative w-full max-w-md mx-auto bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 shadow-2xl" style={{ overflow: 'visible' }}>
+          <div className="relative w-full max-w-md mx-auto bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 shadow-2xl" style={{ overflow: 'visible', margin: '0 16px' }}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white">Previous Chats</h2>
               <button
@@ -561,7 +565,7 @@ function App() {
               </button>
             </div>
             
-            <div className="space-y-3 max-h-80 overflow-y-auto scrollbar-hide overflow-x-visible">
+            <div className="space-y-3 max-h-80 overflow-y-auto scrollbar-hide scroll-smooth px-1" style={{ margin: '0 -4px', padding: '0 4px' }}>
               {loadingSessions ? (
                 <div className="text-center text-white/60 py-8">
                   <div className="animate-spin w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full mx-auto mb-4"></div>
@@ -581,9 +585,9 @@ function App() {
                     className={`p-4 bg-white/5 border border-white/10 rounded-2xl transition-all duration-200 ${
                       loadingChatId === session.sessionId 
                         ? 'cursor-wait opacity-75' 
-                        : 'cursor-pointer hover:bg-white/10 hover:scale-[1.01] hover:shadow-lg hover:border-white/20'
+                        : 'cursor-pointer hover:bg-white/10 hover:scale-[1.02] hover:shadow-xl hover:border-white/30'
                     }`}
-                    style={{ transformOrigin: 'center' }}
+                    style={{ transformOrigin: 'center', margin: '2px' }}
                   >
                     {loadingChatId === session.sessionId ? (
                       <div className="flex items-center justify-center py-2">
