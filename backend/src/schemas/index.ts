@@ -26,6 +26,7 @@ export const updateSessionSchema = z.object({
 
 // Query parameters schemas
 export const sessionListQuerySchema = z.object({
+  sessionIds: z.string().transform((str) => str.split(',').filter(id => id.trim())),
   limit: z.coerce.number().min(1).max(100).default(20),
   offset: z.coerce.number().min(0).default(0),
 });
