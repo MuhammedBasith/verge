@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, inArray } from 'drizzle-orm';
 import { db } from '@/config/database';
 import { cache } from '@/config/redis';
 import { sessions, messages } from '@/models/schema';
@@ -212,6 +212,78 @@ export class SessionService {
       return { sessions: sessionInfos, total };
     } catch (error) {
       logger.error('Failed to get sessions', {
+        limit,
+        offset,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        service: 'session',
+      });
+      return { sessions: [], total: 0 };
+    }
+  }
+
+  async getSessionsByIds(
+    sessionIds: string[],
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<{ sessions: SessionInfo[]; total: number }> {
+    try {
+      // Validate all sessionIds are UUIDs
+      const validSessionIds = sessionIds.filter(id => {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(id);
+      });
+
+      if (validSessionIds.length === 0) {
+        return { sessions: [], total: 0 };
+      }
+
+      // Get sessions by specific IDs (only from persisted sessions in DB)
+      const result = await db
+        .select()
+        .from(sessions)
+        .where(
+          and(
+            inArray(sessions.sessionId, validSessionIds),
+            eq(sessions.isActive, true)
+          )
+        )
+        .orderBy(desc(sessions.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      // Get total count for the provided session IDs
+      const countResult = await db
+        .select({ count: sessions.id })
+        .from(sessions)
+        .where(
+          and(
+            inArray(sessions.sessionId, validSessionIds),
+            eq(sessions.isActive, true)
+          )
+        );
+
+      const total = countResult.length;
+
+      const sessionInfos: SessionInfo[] = result.map((session: any) => ({
+        sessionId: session.sessionId,
+        title: session.title ?? 'Untitled Session',
+        createdAt: session.createdAt.toISOString(),
+      }));
+
+      logger.debug('Sessions retrieved by IDs', {
+        requestedCount: sessionIds.length,
+        validCount: validSessionIds.length,
+        foundCount: sessionInfos.length,
+        total,
+        limit,
+        offset,
+        service: 'session',
+      });
+
+      return { sessions: sessionInfos, total };
+    } catch (error) {
+      logger.error('Failed to get sessions by IDs', {
+        sessionIdsCount: sessionIds.length,
         limit,
         offset,
         error: error instanceof Error ? error.message : 'Unknown error',
