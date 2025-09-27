@@ -39,8 +39,8 @@ const getDatabaseUrl = (): string => {
 
 // Create application configuration
 export const config: AppConfig = {
-  port: env.PORT,
-  host: env.HOST,
+  port: process.env.PORT ? parseInt(process.env.PORT) : env.PORT,
+  host: process.env.NODE_ENV === 'production' ? '0.0.0.0' : env.HOST,
   nodeEnv: env.NODE_ENV,
   corsOrigin: env.CORS_ORIGIN,
 
