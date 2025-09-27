@@ -182,8 +182,8 @@ The application is configured for easy deployment on Render:
 ```env
 # Application Configuration
 NODE_ENV=production
-PORT=3000
-HOST=0.0.0.0
+# PORT is automatically set by Render - don't set this manually
+# HOST is automatically configured for production (0.0.0.0)
 CORS_ORIGIN=https://your-frontend-domain.com
 
 # Database Configuration (use DATABASE_URL for Render)
@@ -226,6 +226,18 @@ LOG_FILE=logs/app.log
 - ✅ Module resolution for production
 - ✅ Automatic dependency installation
 - ✅ Health checks for all services
+- ✅ Automatic host binding (0.0.0.0 for production)
+
+#### Common Render Deployment Issues:
+
+**Port scan timeout / No open ports detected:**
+- ✅ **FIXED**: App now automatically binds to `0.0.0.0` in production
+- ✅ **FIXED**: Uses Render's `PORT` environment variable automatically
+- Don't manually set `PORT` or `HOST` in Render environment variables
+
+**Module resolution errors:**
+- ✅ **FIXED**: `module-alias` handles path aliases at runtime
+- ✅ **FIXED**: `@types/node` included in production dependencies
 
 ### Other Platforms
 
