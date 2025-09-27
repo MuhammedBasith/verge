@@ -1,5 +1,7 @@
 // Simple markdown renderer for message content
 
+import type { JSX } from "react";
+
 export const renderMarkdown = (text: string): JSX.Element => {
   // Split text into lines and process each line
   const lines = text.split('\n');
