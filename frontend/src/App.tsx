@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { PromptInputBox } from './components/ui/ai-prompt-box';
 import { MessageSquare, RotateCcw, Clock, X } from 'lucide-react';
 import axios from 'axios';
 import { renderMarkdown } from './utils/markdown';
+import { Toaster } from './components/ui/sonner';
+import { toast } from 'sonner';
 import {
   getCurrentSession,
   setCurrentSession,
@@ -43,6 +45,7 @@ function App() {
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
   const [isViewingOldChat, setIsViewingOldChat] = useState(false);
+  const [sessionError, setSessionError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto scroll to bottom when messages change
@@ -78,6 +81,7 @@ function App() {
     };
 
     initializeApp();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load messages for a session via API
@@ -105,7 +109,93 @@ function App() {
     }
   };
 
-  const createNewSession = async () => {
+  const handleGeminiError = (error: unknown) => {
+    if (axios.isAxiosError(error) && error.response) {
+      const status = error.response.status;
+      
+      switch (status) {
+        case 429:
+          toast.error('Rate Limit Exceeded', {
+            description: 'Gemini API is temporarily overloaded. Please try again in a few moments.',
+            action: {
+              label: 'Retry',
+              onClick: () => window.location.reload(),
+            },
+          });
+          break;
+          
+        case 503:
+          toast.error('Service Unavailable', {
+            description: 'Gemini AI service is temporarily down. This is not an issue with our app.',
+            action: {
+              label: 'Retry',
+              onClick: () => window.location.reload(),
+            },
+          });
+          break;
+          
+        case 500:
+          toast.error('AI Service Error', {
+            description: 'Gemini AI encountered an internal error. Please try again.',
+          });
+          break;
+          
+        case 400:
+          toast.error('Request Error', {
+            description: 'Invalid request or Gemini billing issue. Please contact support if this persists.',
+          });
+          break;
+          
+        case 403:
+          toast.error('Access Denied', {
+            description: 'Gemini API access denied. This is a service configuration issue.',
+          });
+          break;
+          
+        case 404:
+          toast.error('Resource Not Found', {
+            description: 'Gemini model not available. Please try again later.',
+          });
+          break;
+          
+        case 504:
+          toast.error('Request Timeout', {
+            description: 'Gemini AI took too long to respond. Please try a shorter message.',
+          });
+          break;
+          
+        default:
+          toast.error('AI Service Error', {
+            description: `Gemini API error (${status}). This is not an issue with our app.`,
+          });
+      }
+      
+      // Add error message to chat
+      const errorMessage: Message = {
+        messageId: `error-${Date.now()}`,
+        content: `I'm temporarily unable to respond due to an issue with the AI service. Please try again in a moment.\n\n*This is a Gemini AI service issue, not a problem with our application.*`,
+        sender: 'assistant',
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      
+    } else {
+      // Network or other errors
+      toast.error('Connection Error', {
+        description: 'Unable to reach the AI service. Please check your connection.',
+      });
+      
+      const errorMessage: Message = {
+        messageId: `error-${Date.now()}`,
+        content: `I'm having trouble connecting to the AI service. Please check your internet connection and try again.`,
+        sender: 'assistant',
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  };
+
+  const createNewSession = useCallback(async () => {
     try {
       const response = await axios.post(`${API_BASE_URL}/sessions`, {});
       const now = new Date().toISOString();
@@ -132,23 +222,45 @@ function App() {
       setCurrentSessionState(newSession);
       setMessages([]);
       setIsViewingOldChat(false);
+      setSessionError(false); // Clear any previous errors
+      
+      // Show success toast only if this was a retry
+      if (sessionError) {
+        toast.success('Connected!', {
+          description: 'Successfully connected to the AI service.',
+        });
+      }
     } catch (error) {
       console.error('Failed to create session:', error);
-      // Fallback: create offline session
-      const fallbackSession: ChatSession = {
-        sessionId: `offline-${Date.now()}`,
-        title: 'New Chat (Offline)',
-        createdAt: new Date().toISOString(),
-        lastActivity: new Date().toISOString(),
-        messageCount: 0,
-        isActive: true
-      };
-      setCurrentSessionState(fallbackSession);
+      // Don't create a fallback session - this would cause issues with backend sync
+      toast.error('Connection Failed', {
+        description: 'Unable to connect to server. Please check your connection and try again.',
+        action: {
+          label: 'Retry',
+          onClick: () => {
+            setSessionError(false);
+            createNewSession();
+          },
+        },
+      });
+      setSessionError(true);
     }
-  };
+  }, [sessionError]);
 
   const handleSend = async (message: string) => {
-    if (!currentSession || isViewingOldChat) return;
+    if (!currentSession) {
+      toast.error('No Active Session', {
+        description: 'Please refresh the page to create a new session.',
+      });
+      return;
+    }
+    
+    if (isViewingOldChat) {
+      toast.warning('Viewing Old Chat', {
+        description: 'Please start a new chat to send messages.',
+      });
+      return;
+    }
 
     const now = new Date().toISOString();
     
@@ -237,30 +349,23 @@ function App() {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 404) {
           // Session not found, create new one
+          toast.info('Session Expired', {
+            description: 'Creating a new chat session.',
+          });
           await createNewSession();
         } else if (error.response?.status === 410) {
           // Session was reset
-          alert('This conversation has been saved and reset. Starting a new chat.');
+          toast.info('Session Reset', {
+            description: 'This conversation has been saved. Starting a new chat.',
+          });
           await createNewSession();
         } else {
-          // Generic error - add error message
-          const errorMessage: Message = {
-            messageId: `error-${Date.now()}`,
-            content: "Sorry, I couldn't process your request. Please try again.\n\nHere's an example of how I format responses:\n\n* **News Analysis:** I can provide structured summaries with bullet points and **bold formatting** for key information.",
-            sender: 'assistant',
-            timestamp: new Date().toISOString(),
-          };
-          setMessages(prev => [...prev, errorMessage]);
+          // Handle Gemini API errors
+          handleGeminiError(error);
         }
       } else {
-        // Non-axios error
-        const errorMessage: Message = {
-          messageId: `error-${Date.now()}`,
-          content: "Sorry, I couldn't process your request. Please try again.\n\nHere's an example of how I format responses:\n\n* **Breaking News:** I analyze current events with clear formatting\n* **Key Points:** Important information is **highlighted** for easy reading",
-          sender: 'assistant',
-          timestamp: new Date().toISOString(),
-        };
-        setMessages(prev => [...prev, errorMessage]);
+        // Handle network or other errors
+        handleGeminiError(error);
       }
     } finally {
       setIsLoading(false);
@@ -380,7 +485,9 @@ function App() {
       setShowPreviousChats(false);
     } catch (error) {
       console.error('Failed to load chat history:', error);
-      alert('Failed to load chat history. Please try again.');
+      toast.error('Failed to Load Chat', {
+        description: 'Unable to load chat history. Please try again.',
+      });
     } finally {
       setLoadingChatId(null);
     }
@@ -425,7 +532,7 @@ function App() {
             Verge
           </h1>
           <p className="text-white/70 text-base max-w-md mx-auto leading-relaxed mb-6">
-            Confused by all the news out there? Just ask, we'll summarize it for you.
+            Confused by all the news out there? Just ask, we’ll summarize it for you.
           </p>
           
           <div className="flex justify-center gap-4 mb-8">
@@ -477,7 +584,7 @@ function App() {
         {/* Chat Container */}
         <div className={`bg-black/10 backdrop-blur-sm border border-white/20 rounded-3xl p-4 md:p-6 shadow-2xl ${isViewingOldChat ? 'opacity-90' : ''}`}>
           {/* Messages Area */}
-          <div className="min-h-[350px] max-h-[450px] md:min-h-[400px] md:max-h-[500px] overflow-y-auto space-y-3 mb-4 md:mb-6 scrollbar-hide scroll-smooth">
+          <div className="min-h-[300px] max-h-[400px] md:min-h-[350px] md:max-h-[500px] overflow-y-auto space-y-3 mb-4 md:mb-6 scrollbar-hide scroll-smooth">
             {messages.length === 0 ? (
               <div className="text-center text-white/60 py-20">
                 <p className="text-lg mb-2">Start a conversation</p>
@@ -534,11 +641,17 @@ function App() {
           </div>
 
           {/* Input Box */}
-          <div className={isViewingOldChat ? 'opacity-50 pointer-events-none' : ''}>
+          <div className={(isViewingOldChat || sessionError) ? 'opacity-50 pointer-events-none' : ''}>
             <PromptInputBox 
               onSend={handleSend}
               isLoading={isLoading}
-              placeholder={isViewingOldChat ? "Cannot send messages in old conversations" : "Ask me anything about the news..."}
+              placeholder={
+                sessionError 
+                  ? "Connection failed - please retry" 
+                  : isViewingOldChat 
+                    ? "Cannot send messages in old conversations" 
+                    : "Ask me anything about the news..."
+              }
             />
           </div>
         </div>
@@ -622,6 +735,9 @@ function App() {
           </div>
     </div>
       )}
+      
+      {/* Toast Notifications */}
+      <Toaster />
     </div>
   );
 }
