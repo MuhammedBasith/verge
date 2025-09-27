@@ -107,7 +107,6 @@ function App() {
     const result = await sendMessage(
       message,
       currentSession,
-      () => {}, // onSessionError - handled in hook
       createNewSession
     );
 
