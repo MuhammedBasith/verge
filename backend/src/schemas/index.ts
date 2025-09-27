@@ -88,8 +88,8 @@ export const newsArticleSchema = z.object({
 // Environment variables schema
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.coerce.number().default(3000),
-  HOST: z.string().default('localhost'),
+  PORT: z.coerce.number().default(parseInt(process.env.PORT ?? '3000')),
+  HOST: z.string().default(process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'),
   // Database - support both DATABASE_URL and individual Neon DB variables
   DATABASE_URL: z.string().optional(),
   PGHOST: z.string().optional(),
