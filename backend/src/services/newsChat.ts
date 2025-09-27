@@ -47,14 +47,8 @@ export class NewsChatService {
         .map((result, index) => `[${index + 1}] ${result.text}`)
         .join('\n\n');
 
-      // 3. Build conversation context
-      let conversationContext = '';
-      if (conversationHistory && conversationHistory.length > 0) {
-        conversationContext = conversationHistory
-          .slice(-6) // Last 3 exchanges
-          .map(msg => `${msg.role}: ${msg.content}`)
-          .join('\n');
-      }
+      // 3. Build conversation context (for future use if needed)
+      // Note: Currently using conversationHistory directly in Gemini service
 
       // 4. Generate response using Gemini
       const response = await geminiService.generateResponseWithContext(
@@ -90,7 +84,7 @@ export class NewsChatService {
 
       return {
         response:
-          "I'm sorry, I encountered an error while processing your request. Please try again.",
+          'I\'m sorry, I encountered an error while processing your request. Please try again.',
         sources: [],
       };
     }
