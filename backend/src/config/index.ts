@@ -10,6 +10,7 @@ const parseEnv = (): EnvConfig => {
   try {
     return envSchema.parse(process.env);
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('❌ Invalid environment variables:', error);
     process.exit(1);
   }
@@ -51,7 +52,7 @@ export const config: AppConfig = {
   },
 
   redis: {
-    url: env.REDIS_URL || 'redis://localhost:6379', // fallback for compatibility
+    url: env.REDIS_URL ?? 'redis://localhost:6379', // fallback for compatibility
     ...(env.REDIS_PASSWORD && { password: env.REDIS_PASSWORD }),
     ttl: env.REDIS_TTL,
     maxRetries: 3,
