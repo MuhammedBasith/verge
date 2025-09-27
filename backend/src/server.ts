@@ -1,3 +1,6 @@
+// Register module aliases for production
+import 'module-alias/register';
+
 import { Server } from 'http';
 import app from './app';
 import { port, host } from '@/config';
