@@ -58,7 +58,7 @@ router.get(
   '/',
   validate({ query: sessionListQuerySchema }),
   asyncHandler(async (req: Request, res: Response) => {
-    const { sessionIds, limit, offset }: SessionListQuery = (req as any).parsedQuery || req.query;
+    const { sessionIds, limit, offset }: SessionListQuery = (req as any).parsedQuery ?? req.query;
 
     logger.debug('Sessions list requested', {
       sessionIdsCount: sessionIds?.length || 0,
