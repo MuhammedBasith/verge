@@ -2,7 +2,12 @@ import { Router, Request, Response } from 'express';
 import { validate } from '@/middleware/validation';
 import { asyncHandler, NotFoundError } from '@/middleware/error';
 import { chatRateLimit } from '@/middleware/security';
-import { chatMessageSchema, chatResponseSchema, sessionParamsSchema, messagesResponseSchema } from '@/schemas';
+import {
+  chatMessageSchema,
+  chatResponseSchema,
+  sessionParamsSchema,
+  messagesResponseSchema,
+} from '@/schemas';
 import { sessionService } from '@/services/session';
 import { GeminiError } from '@/services/gemini';
 import { logger } from '@/utils/logger';
@@ -90,16 +95,16 @@ router.post(
           isGeminiError: true,
           details: {
             provider: 'Gemini AI',
-            suggestion: error.statusCode === 429 
+            suggestion: error.statusCode === 429
               ? 'Please wait a moment before sending another message'
-              : error.statusCode === 503 
-              ? 'The AI service is temporarily busy. Please try again in a few minutes'
-              : 'Please try again or contact support if the issue persists'
-          }
+              : error.statusCode === 503
+                ? 'The AI service is temporarily busy. Please try again in a few minutes'
+                : 'Please try again or contact support if the issue persists',
+          },
         });
         return;
       }
-      
+
       // Re-throw other errors to be handled by global error handler
       throw error;
     }
@@ -123,7 +128,7 @@ router.get(
 
     // Get messages first (works for both active and persisted sessions)
     const messages = await sessionService.getSessionMessages(sessionId);
-    
+
     if (messages.length === 0) {
       throw new NotFoundError('Session or messages not found');
     }
