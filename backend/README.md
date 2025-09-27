@@ -26,6 +26,14 @@ A simple Node.js backend for a news chatbot using AI and semantic search.
 4. **AI Response** - Gemini generates answer with news context
 5. **Reset Chat** - Save conversation to database, clear Redis
 
+## Why these choices?
+
+**Pinecone with built-in embeddings**: We chose Pinecone because it handles embeddings automatically. Just send raw text and it converts to vectors internally - no need for separate embedding APIs or complex setup.
+
+**Redis-first caching**: Active chats live in Redis for speed. When you're chatting, everything is fast because it's in memory. Only when you hit "reset chat" do we save to the database permanently. This keeps the database clean and the app fast.
+
+**Session management**: Your frontend stores session IDs in localStorage. When you want to see previous chats, you send those IDs to get only YOUR conversations back - no privacy issues.
+
 ## API Endpoints
 
 ```
