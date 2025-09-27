@@ -231,3 +231,5 @@ redis-dump.rdb
 # Drizzle
 drizzle/
 migrations/
+
+.DS_Store
