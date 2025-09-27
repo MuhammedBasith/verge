@@ -9,7 +9,7 @@ export class GeminiError extends Error {
     public statusCode: number,
     public errorCode: string,
     public userMessage: string,
-    public isGeminiError: boolean = true
+    public isGeminiError: boolean = true,
   ) {
     super(message);
     this.name = 'GeminiError';
@@ -20,87 +20,87 @@ export class GeminiError extends Error {
 const mapGeminiError = (error: any): GeminiError => {
   const statusCode = error.status || error.statusCode || 500;
   const errorMessage = error.message || 'Unknown error';
-  
+
   switch (statusCode) {
-    case 400:
-      if (errorMessage.includes('INVALID_ARGUMENT')) {
-        return new GeminiError(
-          errorMessage,
-          400,
-          'INVALID_REQUEST',
-          'There was an issue with the request format. Please try again.'
-        );
-      }
-      if (errorMessage.includes('FAILED_PRECONDITION')) {
-        return new GeminiError(
-          errorMessage,
-          400,
-          'BILLING_REQUIRED',
-          'Gemini API requires billing to be enabled. This is a service configuration issue.'
-        );
-      }
+  case 400:
+    if (errorMessage.includes('INVALID_ARGUMENT')) {
       return new GeminiError(
         errorMessage,
         400,
-        'BAD_REQUEST',
-        'Invalid request. Please try again with a different message.'
+        'INVALID_REQUEST',
+        'There was an issue with the request format. Please try again.',
       );
-      
-    case 403:
+    }
+    if (errorMessage.includes('FAILED_PRECONDITION')) {
       return new GeminiError(
         errorMessage,
-        403,
-        'PERMISSION_DENIED',
-        'API access denied. This is a service configuration issue.'
+        400,
+        'BILLING_REQUIRED',
+        'Gemini API requires billing to be enabled. This is a service configuration issue.',
       );
-      
-    case 404:
-      return new GeminiError(
-        errorMessage,
-        404,
-        'NOT_FOUND',
-        'Requested resource not found. Please try again.'
-      );
-      
-    case 429:
-      return new GeminiError(
-        errorMessage,
-        429,
-        'RATE_LIMIT_EXCEEDED',
-        'Gemini API rate limit exceeded. Please wait a moment and try again.'
-      );
-      
-    case 500:
-      return new GeminiError(
-        errorMessage,
-        500,
-        'GEMINI_INTERNAL_ERROR',
-        'Gemini AI service is experiencing issues. Please try again in a moment.'
-      );
-      
-    case 503:
-      return new GeminiError(
-        errorMessage,
-        503,
-        'SERVICE_UNAVAILABLE',
-        'Gemini AI service is temporarily overloaded. Please try again in a few minutes.'
-      );
-      
-    case 504:
-      return new GeminiError(
-        errorMessage,
-        504,
-        'TIMEOUT',
-        'Request timed out. Your message might be too long. Please try with a shorter message.'
-      );
-      
-    default:
-      return new GeminiError(
-        errorMessage,
-        statusCode,
-        'UNKNOWN_ERROR',
-        'An unexpected error occurred with the AI service. Please try again.'
-      );
+    }
+    return new GeminiError(
+      errorMessage,
+      400,
+      'BAD_REQUEST',
+      'Invalid request. Please try again with a different message.',
+    );
+
+  case 403:
+    return new GeminiError(
+      errorMessage,
+      403,
+      'PERMISSION_DENIED',
+      'API access denied. This is a service configuration issue.',
+    );
+
+  case 404:
+    return new GeminiError(
+      errorMessage,
+      404,
+      'NOT_FOUND',
+      'Requested resource not found. Please try again.',
+    );
+
+  case 429:
+    return new GeminiError(
+      errorMessage,
+      429,
+      'RATE_LIMIT_EXCEEDED',
+      'Gemini API rate limit exceeded. Please wait a moment and try again.',
+    );
+
+  case 500:
+    return new GeminiError(
+      errorMessage,
+      500,
+      'GEMINI_INTERNAL_ERROR',
+      'Gemini AI service is experiencing issues. Please try again in a moment.',
+    );
+
+  case 503:
+    return new GeminiError(
+      errorMessage,
+      503,
+      'SERVICE_UNAVAILABLE',
+      'Gemini AI service is temporarily overloaded. Please try again in a few minutes.',
+    );
+
+  case 504:
+    return new GeminiError(
+      errorMessage,
+      504,
+      'TIMEOUT',
+      'Request timed out. Your message might be too long. Please try with a shorter message.',
+    );
+
+  default:
+    return new GeminiError(
+      errorMessage,
+      statusCode,
+      'UNKNOWN_ERROR',
+      'An unexpected error occurred with the AI service. Please try again.',
+    );
   }
 };
 
@@ -217,7 +217,7 @@ export class GeminiService {
       return `I apologize, but I couldn't find any recent news articles related to "${query}". Please try rephrasing your question or asking about a different topic.`;
     }
 
-    return `I found some relevant news articles, but I'm having trouble generating a complete response at the moment. Please try again.`;
+    return 'I found some relevant news articles, but I\'m having trouble generating a complete response at the moment. Please try again.';
   }
 }
 
