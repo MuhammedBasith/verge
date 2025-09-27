@@ -113,7 +113,6 @@ export const useMessages = () => {
   const sendMessage = useCallback(async (
     message: string, 
     currentSession: ChatSession | null,
-    onSessionError: (error: any) => void,
     onCreateNewSession: () => Promise<ChatSession>
   ) => {
     if (!currentSession) {
