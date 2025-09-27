@@ -19,9 +19,28 @@ export const usePreviousSessions = () => {
       // Load from localStorage first for immediate display
       const localSessions = getPreviousSessions();
       
-      // Always load from API to get latest data
-      const response = await axios.get(`${API_BASE_URL}/sessions?limit=20&offset=0`);
-      const apiSessions = response.data.sessions;
+      // If no local sessions, no need to call API
+      if (localSessions.length === 0) {
+        setPreviousSessions([]);
+        setLoadingSessions(false);
+        return;
+      }
+      
+      // Extract session IDs from localStorage for secure API call
+      const sessionIds = localSessions.map(session => session.sessionId);
+      const sessionIdsParam = sessionIds.join(',');
+      
+      // Call API with specific session IDs only (secure - user can only see their own sessions)
+      const response = await axios.get(`${API_BASE_URL}/sessions?sessionIds=${sessionIdsParam}&limit=20&offset=0`);
+      const apiSessions = response.data.sessions || [];
+      
+      // If API returns empty array, it means none of the local sessions exist on server
+      if (apiSessions.length === 0) {
+        // Keep local sessions but mark them as potentially outdated
+        setPreviousSessions(localSessions);
+        setLoadingSessions(false);
+        return;
+      }
       
       // Merge with local sessions (API sessions are persisted ones)
       const mergedSessions = [...localSessions];
@@ -36,7 +55,8 @@ export const usePreviousSessions = () => {
             createdAt: apiSession.createdAt,
           };
         } else {
-          // Add new session from API
+          // This shouldn't happen since we're only requesting sessions we have locally
+          // But add it just in case
           mergedSessions.push({
             sessionId: apiSession.sessionId,
             title: apiSession.title,
