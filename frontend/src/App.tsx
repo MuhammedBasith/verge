@@ -1,57 +1,56 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { PromptInputBox } from './components/ui/ai-prompt-box';
 import { MessageSquare, RotateCcw, Clock, X, Heart } from 'lucide-react';
-import axios from 'axios';
 import { renderMarkdown } from './utils/markdown';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import { ThinkingIndicator } from './components/ThinkingIndicator';
 import { ServerWarmingScreen } from './components/ServerWarmingScreen';
 import { useServerStatus } from './hooks/useServerStatus';
-import {
-  getCurrentSession,
-  setCurrentSession,
-  clearCurrentSession,
-  getPreviousSessions,
-  addToPreviousSessions,
-  generateSessionTitle,
-  cleanupOldSessions,
-  type StoredSession
-} from './utils/localStorage';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-interface Message {
-  messageId: string;
-  content: string;
-  sender: 'user' | 'assistant';
-  timestamp: string;
-}
-
-interface ChatSession {
-  sessionId: string;
-  title: string;
-  createdAt: string;
-  lastActivity: string;
-  messageCount: number;
-  isActive: boolean; // true for current session, false for previous
-}
+import { useChatSession } from './hooks/useChatSession';
+import { useMessages } from './hooks/useMessages';
+import { usePreviousSessions } from './hooks/usePreviousSessions';
+import { cleanupOldSessions } from './utils/localStorage';
 
 function App() {
   // Server status check
   const { status: serverStatus, isReady: serverReady, error: serverError, warmingProgress, retryConnection } = useServerStatus();
   
-  const [currentSession, setCurrentSessionState] = useState<ChatSession | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
-  const [showPreviousChats, setShowPreviousChats] = useState(false);
-  const [previousSessions, setPreviousSessions] = useState<StoredSession[]>([]);
-  const [loadingSessions, setLoadingSessions] = useState(false);
-  const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
-  const [isViewingOldChat, setIsViewingOldChat] = useState(false);
-  const [sessionError, setSessionError] = useState(false);
+  // Custom hooks
+  const {
+    currentSession,
+    isViewingOldChat,
+    sessionError,
+    isResetting,
+    createNewSession,
+    loadSessionFromStorage,
+    updateSessionTitle,
+    updateSessionActivity,
+    resetSession,
+    loadOldSession,
+    backToCurrentSession
+  } = useChatSession();
+
+  const {
+    messages,
+    isLoading,
+    isTyping,
+    loadSessionMessages,
+    sendMessage,
+    clearMessages,
+    setMessagesFromHistory
+  } = useMessages();
+
+  const {
+    showPreviousChats,
+    previousSessions,
+    loadingSessions,
+    loadingChatId,
+    loadChatHistory,
+    handleShowPreviousChats,
+    handleClosePreviousChats
+  } = usePreviousSessions();
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto scroll to bottom when messages change
@@ -70,18 +69,10 @@ function App() {
       cleanupOldSessions();
 
       // Try to load existing current session
-      const storedSession = getCurrentSession();
-      if (storedSession) {
-        // Load existing session
-        const sessionData: ChatSession = {
-          ...storedSession,
-          isActive: true
-        };
-        setCurrentSessionState(sessionData);
-        
+      const sessionData = await loadSessionFromStorage();
+      if (sessionData) {
         // Load messages from API
-        await loadSessionMessages(storedSession.sessionId, true);
-        setIsViewingOldChat(false);
+        await loadSessionMessages(sessionData.sessionId, true);
       } else {
         // Create new session
         await createNewSession();
@@ -92,169 +83,7 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverReady]);
 
-  // Load messages for a session via API
-  const loadSessionMessages = async (sessionId: string, isCurrentSession: boolean = false) => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/chat/history/${sessionId}`);
-      setMessages(response.data.messages);
-      
-      // Update message count in localStorage if it's current session
-      if (isCurrentSession) {
-        const storedSession = getCurrentSession();
-        if (storedSession) {
-          setCurrentSession({
-            ...storedSession,
-            messageCount: response.data.messages.length
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load session messages:', error);
-      if (isCurrentSession) {
-        // If current session messages can't be loaded, start fresh
-        setMessages([]);
-      }
-    }
-  };
-
-  const handleGeminiError = (error: unknown) => {
-    if (axios.isAxiosError(error) && error.response) {
-      const status = error.response.status;
-      
-      switch (status) {
-        case 429:
-          toast.error('Rate Limit Exceeded', {
-            description: 'Gemini API is temporarily overloaded. Please try again in a few moments.',
-            action: {
-              label: 'Retry',
-              onClick: () => window.location.reload(),
-            },
-          });
-          break;
-          
-        case 503:
-          toast.error('Service Unavailable', {
-            description: 'Gemini AI service is temporarily down. This is not an issue with our app.',
-            action: {
-              label: 'Retry',
-              onClick: () => window.location.reload(),
-            },
-          });
-          break;
-          
-        case 500:
-          toast.error('AI Service Error', {
-            description: 'Gemini AI encountered an internal error. Please try again.',
-          });
-          break;
-          
-        case 400:
-          toast.error('Request Error', {
-            description: 'Invalid request or Gemini billing issue. Please contact support if this persists.',
-          });
-          break;
-          
-        case 403:
-          toast.error('Access Denied', {
-            description: 'Gemini API access denied. This is a service configuration issue.',
-          });
-          break;
-          
-        case 404:
-          toast.error('Resource Not Found', {
-            description: 'Gemini model not available. Please try again later.',
-          });
-          break;
-          
-        case 504:
-          toast.error('Request Timeout', {
-            description: 'Gemini AI took too long to respond. Please try a shorter message.',
-          });
-          break;
-          
-        default:
-          toast.error('AI Service Error', {
-            description: `Gemini API error (${status}). This is not an issue with our app.`,
-          });
-      }
-      
-      // Add error message to chat
-      const errorMessage: Message = {
-        messageId: `error-${Date.now()}`,
-        content: `I'm temporarily unable to respond due to an issue with the AI service. Please try again in a moment.\n\n*This is a Gemini AI service issue, not a problem with our application.*`,
-        sender: 'assistant',
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-      
-    } else {
-      // Network or other errors
-      toast.error('Connection Error', {
-        description: 'Unable to reach the AI service. Please check your connection.',
-      });
-      
-      const errorMessage: Message = {
-        messageId: `error-${Date.now()}`,
-        content: `I'm having trouble connecting to the AI service. Please check your internet connection and try again.`,
-        sender: 'assistant',
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    }
-  };
-
-  const createNewSession = useCallback(async () => {
-    try {
-      const response = await axios.post(`${API_BASE_URL}/sessions`, {});
-      const now = new Date().toISOString();
-      
-      const newSession: ChatSession = {
-        sessionId: response.data.sessionId,
-        title: 'New Chat',
-        createdAt: response.data.createdAt || now,
-        lastActivity: now,
-        messageCount: 0,
-        isActive: true
-      };
-
-      // Save to localStorage as current session
-      const storedSession: StoredSession = {
-        sessionId: newSession.sessionId,
-        title: newSession.title,
-        createdAt: newSession.createdAt,
-        lastActivity: newSession.lastActivity,
-        messageCount: 0
-      };
-      setCurrentSession(storedSession);
-
-      setCurrentSessionState(newSession);
-      setMessages([]);
-      setIsViewingOldChat(false);
-      setSessionError(false); // Clear any previous errors
-      
-      // Show success toast only if this was a retry
-      if (sessionError) {
-        toast.success('Connected!', {
-          description: 'Successfully connected to the AI service.',
-        });
-      }
-    } catch (error) {
-      console.error('Failed to create session:', error);
-      // Don't create a fallback session - this would cause issues with backend sync
-      toast.error('Connection Failed', {
-        description: 'Unable to connect to server. Please check your connection and try again.',
-        action: {
-          label: 'Retry',
-          onClick: () => {
-            setSessionError(false);
-            createNewSession();
-          },
-        },
-      });
-      setSessionError(true);
-    }
-  }, [sessionError]);
-
+  // Handle sending messages
   const handleSend = async (message: string) => {
     if (!currentSession) {
       toast.error('No Active Session', {
@@ -270,263 +99,44 @@ function App() {
       return;
     }
 
-    const now = new Date().toISOString();
-    
-    // Add user message immediately to UI
-    const userMessage: Message = {
-      messageId: `temp-user-${Date.now()}`,
-      content: message,
-      sender: 'user',
-      timestamp: now,
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    
     // Update session title if it's the first message
     if (messages.length === 0) {
-      const newTitle = generateSessionTitle(message);
-      const updatedSession: ChatSession = {
-        ...currentSession,
-        title: newTitle,
-        lastActivity: now,
-        messageCount: 1
-      };
-      setCurrentSessionState(updatedSession);
-      
-      // Update localStorage
-      setCurrentSession({
-        sessionId: currentSession.sessionId,
-        title: newTitle,
-        createdAt: currentSession.createdAt,
-        lastActivity: now,
-        messageCount: 1
-      });
+      updateSessionTitle(message, 1);
     }
 
-    setIsLoading(true);
-    setIsTyping(true);
+    const result = await sendMessage(
+      message,
+      currentSession,
+      () => {}, // onSessionError - handled in hook
+      createNewSession
+    );
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/chat`, {
-        sessionId: currentSession.sessionId,
-        message: message
-      });
-
-      // Replace temp user message and add bot response
-      const actualUserMessage: Message = {
-        messageId: `user-${Date.now()}`,
-        content: message,
-        sender: 'user',
-        timestamp: now,
-      };
-
-      const botMessage: Message = {
-        messageId: response.data.messageId,
-        content: response.data.message,
-        sender: 'assistant',
-        timestamp: response.data.timestamp,
-      };
-
-      // Update messages with actual API response
-      setMessages(prev => {
-        const withoutTemp = prev.filter(msg => !msg.messageId.startsWith('temp-'));
-        return [...withoutTemp, actualUserMessage, botMessage];
-      });
-      
-      // Update session info in localStorage
-      const updatedMessageCount = messages.length + 1; // +1 for the pair
-      const updatedSession: ChatSession = {
-        ...currentSession,
-        lastActivity: response.data.timestamp,
-        messageCount: updatedMessageCount
-      };
-      setCurrentSessionState(updatedSession);
-      
-      setCurrentSession({
-        sessionId: currentSession.sessionId,
-        title: currentSession.title,
-        createdAt: currentSession.createdAt,
-        lastActivity: response.data.timestamp,
-        messageCount: updatedMessageCount
-      });
-
-    } catch (error: unknown) {
-      console.error('Failed to send message:', error);
-      
-      // Handle different error cases
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 404) {
-          // Session not found, create new one
-          toast.info('Session Expired', {
-            description: 'Creating a new chat session.',
-          });
-          await createNewSession();
-        } else if (error.response?.status === 410) {
-          // Session was reset
-          toast.info('Session Reset', {
-            description: 'This conversation has been saved. Starting a new chat.',
-          });
-          await createNewSession();
-        } else {
-          // Handle Gemini API errors
-          handleGeminiError(error);
-        }
-      } else {
-        // Handle network or other errors
-        handleGeminiError(error);
-      }
-    } finally {
-      setIsLoading(false);
-      setIsTyping(false);
+    if (result) {
+      // Update session activity
+      updateSessionActivity(result.timestamp, messages.length + 2); // +2 for user and bot message
     }
   };
 
+  // Handle reset session
   const handleReset = async () => {
-    if (!currentSession || isResetting) return;
-
-    setIsResetting(true);
-
-    try {
-      // Save current session to previous sessions before resetting
-      if (messages.length > 0) {
-        const sessionToSave: StoredSession = {
-          sessionId: currentSession.sessionId,
-          title: currentSession.title,
-          createdAt: currentSession.createdAt,
-          lastActivity: currentSession.lastActivity,
-          messageCount: messages.length
-        };
-        addToPreviousSessions(sessionToSave);
-      }
-
-      // Try to reset session on backend (this saves it to DB and clears from Redis)
-      try {
-        await axios.delete(`${API_BASE_URL}/sessions/${currentSession.sessionId}`);
-      } catch (error) {
-        console.error('Failed to reset session on backend:', error);
-        // Continue with local reset even if backend fails
-      }
-
-      // Clear current session from localStorage
-      clearCurrentSession();
-      
-      // Create new session
-      await createNewSession();
-    } catch (error) {
-      console.error('Failed to reset session:', error);
-      // Still create new session even if reset fails
-      await createNewSession();
-    } finally {
-      setIsResetting(false);
-    }
+    await resetSession(messages);
+    clearMessages();
   };
 
-  const loadPreviousSessions = async () => {
-    setLoadingSessions(true);
-    
-    try {
-      // Load from localStorage first for immediate display
-      const localSessions = getPreviousSessions();
-      
-      // Always load from API to get latest data
-      const response = await axios.get(`${API_BASE_URL}/sessions?limit=20&offset=0`);
-      const apiSessions = response.data.sessions;
-      
-      // Merge with local sessions (API sessions are persisted ones)
-      const mergedSessions = [...localSessions];
-      
-      apiSessions.forEach((apiSession: { sessionId: string; title: string; createdAt: string }) => {
-        const existingIndex = mergedSessions.findIndex(s => s.sessionId === apiSession.sessionId);
-        if (existingIndex >= 0) {
-          // Update existing session with API data
-          mergedSessions[existingIndex] = {
-            ...mergedSessions[existingIndex],
-            title: apiSession.title,
-            createdAt: apiSession.createdAt,
-          };
-        } else {
-          // Add new session from API
-          mergedSessions.push({
-            sessionId: apiSession.sessionId,
-            title: apiSession.title,
-            createdAt: apiSession.createdAt,
-            lastActivity: apiSession.createdAt,
-            messageCount: 0
-          });
-        }
-      });
-      
-      // Sort by creation date (newest first)
-      mergedSessions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      
-      setPreviousSessions(mergedSessions);
-    } catch (error) {
-      console.error('Failed to load sessions from API:', error);
-      // Fallback to localStorage only
-      const localSessions = getPreviousSessions();
-      setPreviousSessions(localSessions);
-    } finally {
-      setLoadingSessions(false);
-    }
+  // Handle loading chat history
+  const handleLoadChatHistory = async (sessionId: string) => {
+    await loadChatHistory(sessionId, setMessagesFromHistory, loadOldSession);
   };
 
-  const loadChatHistory = async (sessionId: string) => {
-    try {
-      setLoadingChatId(sessionId);
-      
-      // Always load from API
-      const response = await axios.get(`${API_BASE_URL}/chat/history/${sessionId}`);
-      
-      const session = previousSessions.find(s => s.sessionId === sessionId);
-      const chatSession: ChatSession = {
-        sessionId: sessionId,
-        title: session?.title || 'Old Chat',
-        createdAt: session?.createdAt || '',
-        lastActivity: session?.lastActivity || '',
-        messageCount: response.data.messages.length,
-        isActive: false
-      };
-
-      setCurrentSessionState(chatSession);
-      setMessages(response.data.messages);
-      setIsViewingOldChat(true);
-      setShowPreviousChats(false);
-    } catch (error) {
-      console.error('Failed to load chat history:', error);
-      toast.error('Failed to Load Chat', {
-        description: 'Unable to load chat history. Please try again.',
-      });
-    } finally {
-      setLoadingChatId(null);
-    }
-  };
-
-  const handleShowPreviousChats = () => {
-    setShowPreviousChats(true);
-    // Always refresh previous sessions data
-    setPreviousSessions([]);
-    loadPreviousSessions();
-  };
-
+  // Handle back to current session
   const handleBackToCurrentSession = async () => {
-    // Check if we have a current session in localStorage
-    const storedSession = getCurrentSession();
-    if (storedSession) {
-      // Load current session
-      const sessionData: ChatSession = {
-        ...storedSession,
-        isActive: true
-      };
-      setCurrentSessionState(sessionData);
-      
-      // Load messages from API
-      await loadSessionMessages(storedSession.sessionId, true);
-      setIsViewingOldChat(false);
-    } else {
-      // Create new session
-      await createNewSession();
+    const sessionData = await backToCurrentSession();
+    if (sessionData) {
+      await loadSessionMessages(sessionData.sessionId, true);
     }
   };
+
+
 
   // Show server warming screen if server is not ready
   if (!serverReady) {
@@ -685,7 +295,7 @@ function App() {
           {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-gradient-to-br from-black/20 via-black/30 to-black/40 backdrop-blur-sm"
-            onClick={() => setShowPreviousChats(false)}
+            onClick={handleClosePreviousChats}
           />
           
           {/* Modal */}
@@ -693,7 +303,7 @@ function App() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white">Previous Chats</h2>
               <button
-                onClick={() => setShowPreviousChats(false)}
+                onClick={handleClosePreviousChats}
                 className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors"
               >
                 <X size={20} />
@@ -716,7 +326,7 @@ function App() {
                 previousSessions.map((session) => (
                   <div
                     key={session.sessionId}
-                    onClick={() => loadingChatId !== session.sessionId && loadChatHistory(session.sessionId)}
+                    onClick={() => loadingChatId !== session.sessionId && handleLoadChatHistory(session.sessionId)}
                     className={`p-4 bg-white/5 border border-white/10 rounded-2xl transition-all duration-200 ${
                       loadingChatId === session.sessionId 
                         ? 'cursor-wait opacity-75' 
