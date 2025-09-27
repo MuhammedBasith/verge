@@ -51,22 +51,35 @@ router.post(
 );
 
 /**
- * GET /api/sessions
- * Get all sessions for a user (with pagination)
+ * GET /api/sessions?sessionIds=id1,id2,id3
+ * Get specific sessions by their IDs (user's previous sessions from localStorage)
  */
 router.get(
   '/',
   validate({ query: sessionListQuerySchema }),
   asyncHandler(async (req: Request, res: Response) => {
-    const { limit, offset }: SessionListQuery = (req as any).parsedQuery || req.query;
+    const { sessionIds, limit, offset }: SessionListQuery = (req as any).parsedQuery || req.query;
 
     logger.debug('Sessions list requested', {
+      sessionIdsCount: sessionIds?.length || 0,
       limit,
       offset,
       service: 'session_api',
     });
 
-    const result = await sessionService.getSessions(undefined, limit, offset);
+    // If no sessionIds provided, return empty result
+    if (!sessionIds || sessionIds.length === 0) {
+      const emptyResult = {
+        sessions: [],
+        total: 0,
+      };
+
+      const validatedResponse = sessionListResponseSchema.parse(emptyResult);
+      res.json(validatedResponse);
+      return;
+    }
+
+    const result = await sessionService.getSessionsByIds(sessionIds, limit, offset);
 
     // Validate response schema
     const validatedResponse = sessionListResponseSchema.parse(result);
