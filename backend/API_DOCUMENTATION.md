@@ -157,18 +157,19 @@ Saves the conversation to PostgreSQL permanently and removes it from Redis. This
 
 ---
 
-### **5. List Sessions**
-Get paginated list of persisted sessions (only shows conversations that were explicitly reset/saved).
+### **5. List User's Previous Sessions**
+Get specific sessions by their IDs (user's previous sessions from localStorage). Only returns sessions that were explicitly reset/saved.
 
 **Endpoint:** `GET /api/sessions`
 
 **Query Parameters:**
+- `sessionIds` (required): Comma-separated list of session IDs from localStorage
 - `limit` (optional): Number of sessions to return (1-100, default: 20)
 - `offset` (optional): Number of sessions to skip (default: 0)
 
 **Request Example:**
 ```
-GET /api/sessions?limit=10&offset=0
+GET /api/sessions?sessionIds=123e4567-e89b-12d3-a456-426614174000,789e0123-f45g-67h8-i901-234567890123&limit=10&offset=0
 ```
 
 **Response:** `200 OK`
@@ -186,13 +187,21 @@ GET /api/sessions?limit=10&offset=0
       "createdAt": "2025-09-25T15:20:00.000Z"
     }
   ],
-  "total": 25
+  "total": 2
 }
 ```
 
 **Data Source:** PostgreSQL only (persisted sessions)
 
-**Note:** Active Redis sessions are NOT included in this list.
+**Privacy:** Only returns sessions with IDs provided by the frontend. No session data is exposed to other users.
+
+**Edge Cases:**
+
+| Case | Response |
+|------|----------|
+| No sessionIds provided | `{"sessions": [], "total": 0}` |
+| Invalid UUID format | Filters out invalid IDs, returns valid ones |
+| Session not found in DB | Not included in results |
 
 ---
 
