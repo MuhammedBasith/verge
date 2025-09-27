@@ -53,7 +53,7 @@ router.get(
       uptime: process.uptime(),
       responseTime: Date.now() - startTime,
       version: '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
+      environment: process.env.NODE_ENV ?? 'development',
       services: checks,
       system: {
         nodeVersion: process.version,
