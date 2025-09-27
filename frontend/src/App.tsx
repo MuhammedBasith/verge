@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { PromptInputBox } from './components/ui/ai-prompt-box';
-import { MessageSquare, RotateCcw, Clock, X } from 'lucide-react';
+import { MessageSquare, RotateCcw, Clock, X, Heart } from 'lucide-react';
 import axios from 'axios';
 import { renderMarkdown } from './utils/markdown';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
+import { ThinkingIndicator } from './components/ThinkingIndicator';
+import { ServerWarmingScreen } from './components/ServerWarmingScreen';
+import { useServerStatus } from './hooks/useServerStatus';
 import {
   getCurrentSession,
   setCurrentSession,
@@ -35,6 +38,9 @@ interface ChatSession {
 }
 
 function App() {
+  // Server status check
+  const { status: serverStatus, isReady: serverReady, error: serverError, warmingProgress, retryConnection } = useServerStatus();
+  
   const [currentSession, setCurrentSessionState] = useState<ChatSession | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,8 +61,10 @@ function App() {
     }
   }, [messages]);
 
-  // Initialize app - load existing session or create new one
+  // Initialize app - load existing session or create new one (only after server is ready)
   useEffect(() => {
+    if (!serverReady) return;
+
     const initializeApp = async () => {
       // Cleanup old sessions on startup
       cleanupOldSessions();
@@ -82,7 +90,7 @@ function App() {
 
     initializeApp();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [serverReady]);
 
   // Load messages for a session via API
   const loadSessionMessages = async (sessionId: string, isCurrentSession: boolean = false) => {
@@ -520,6 +528,18 @@ function App() {
     }
   };
 
+  // Show server warming screen if server is not ready
+  if (!serverReady) {
+    return (
+      <ServerWarmingScreen
+        status={serverStatus}
+        progress={warmingProgress}
+        error={serverError}
+        onRetry={retryConnection}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[radial-gradient(125%_125%_at_50%_101%,rgba(245,87,2,1)_10.5%,rgba(245,120,2,1)_16%,rgba(245,140,2,1)_17.5%,rgba(245,170,100,1)_25%,rgba(238,174,202,1)_40%,rgba(202,179,214,1)_65%,rgba(148,201,233,1)_100%)] flex items-center justify-center p-6">
       <div className="w-full max-w-2xl mx-auto">
@@ -619,21 +639,8 @@ function App() {
                   </div>
                 ))}
 
-                {/* Typing indicator */}
-                {isTyping && (
-                  <div className="flex justify-start mb-3">
-                    <div className="bg-black/20 text-white rounded-2xl rounded-bl-md backdrop-blur-sm border border-white/20 px-4 py-3">
-                      <div className="flex items-center space-x-1">
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                          <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                        </div>
-                        <span className="text-xs text-white/60 ml-2">Thinking...</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* Enhanced Thinking indicator */}
+                {isTyping && <ThinkingIndicator />}
 
                 <div ref={messagesEndRef} />
               </>
@@ -653,6 +660,21 @@ function App() {
                     : "Ask me anything about the news..."
               }
             />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center">
+          <div className="text-white/40 text-xs flex items-center justify-center gap-1">
+            Made with <Heart size={12} className="text-red-400 animate-pulse" /> by{' '}
+            <a 
+              href="https://www.basith.me/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-white/60 hover:text-white/80 transition-colors underline"
+            >
+              basith
+            </a>
           </div>
         </div>
       </div>
