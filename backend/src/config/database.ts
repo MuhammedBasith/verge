@@ -76,7 +76,7 @@ export const closeDatabaseConnection = async (): Promise<void> => {
 
 // Database utilities
 export const withTransaction = async <T>(
-  callback: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>
+  callback: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>,
 ): Promise<T> => {
   const start = Date.now();
 
