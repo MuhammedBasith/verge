@@ -71,7 +71,7 @@ export class SessionService {
       if (!session) {
         return null;
       }
-      
+
       const sessionData: Session = {
         sessionId: session.sessionId,
         title: session.title ?? undefined,
@@ -244,8 +244,8 @@ export class SessionService {
         .where(
           and(
             inArray(sessions.sessionId, validSessionIds),
-            eq(sessions.isActive, true)
-          )
+            eq(sessions.isActive, true),
+          ),
         )
         .orderBy(desc(sessions.createdAt))
         .limit(limit)
@@ -258,8 +258,8 @@ export class SessionService {
         .where(
           and(
             inArray(sessions.sessionId, validSessionIds),
-            eq(sessions.isActive, true)
-          )
+            eq(sessions.isActive, true),
+          ),
         );
 
       const total = countResult.length;
@@ -421,7 +421,7 @@ export class SessionService {
 
       // Generate title if this is the first user message (excluding the one we just added)
       const userMessagesBeforeThis = history.filter(msg => msg.sender === 'user' && msg.messageId !== userMsg.messageId).length;
-      
+
       logger.debug('Title generation check', {
         sessionId,
         userMessagesBeforeThis,
