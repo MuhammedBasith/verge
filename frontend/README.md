@@ -27,7 +27,7 @@ A modern React-based chat interface for the Verge news chatbot, built with cutti
 - **ESLint 9.36.0** - Code linting with latest rules
 - **TypeScript ESLint** - TypeScript-specific linting
 - **Vite Plugin React** - Hot module replacement
-- **PNPM** - Fast, disk space efficient package manager
+- **npm** - Fast, disk space efficient package manager
 
 ## Architecture
 
@@ -114,21 +114,21 @@ export default defineConfig({
 
 ### Prerequisites
 - Node.js 18.0.0 or higher
-- PNPM (recommended) or npm
+- npm (recommended) or npm
 
 ### Installation
 ```bash
 # Install dependencies
-pnpm install
+npm install
 
 # Start development server
-pnpm dev
+npm dev
 
 # Build for production
-pnpm build
+npm build
 
 # Preview production build
-pnpm preview
+npm preview
 ```
 
 ### Development Server
@@ -141,10 +141,10 @@ The development server runs on `http://localhost:5173` with:
 ### Code Quality
 ```bash
 # Run ESLint
-pnpm lint
+npm lint
 
 # Type checking
-pnpm type-check
+npm type-check
 ```
 
 ## Component Architecture
@@ -244,10 +244,10 @@ const apiClient = axios.create({
 ### Production Build
 ```bash
 # Create optimized build
-pnpm build
+npm build
 
 # Serve locally for testing
-pnpm preview
+npm preview
 ```
 
 ### Build Output
@@ -283,7 +283,7 @@ pnpm preview
 2. Create feature branch: `git checkout -b feature/amazing-feature`
 3. Make changes with proper TypeScript types
 4. Test thoroughly in development
-5. Run linting: `pnpm lint`
+5. Run linting: `npm lint`
 6. Submit pull request
 
 ### Code Standards
@@ -298,7 +298,7 @@ pnpm preview
 
 **Development server won't start**
 - Check Node.js version (18.0.0+)
-- Clear node_modules: `rm -rf node_modules && pnpm install`
+- Clear node_modules: `rm -rf node_modules && npm install`
 - Check port availability (5173)
 
 **API connection failed**
@@ -307,13 +307,13 @@ pnpm preview
 - Ensure CORS is configured in backend
 
 **Build failures**
-- Run type checking: `pnpm type-check`
-- Check for ESLint errors: `pnpm lint`
+- Run type checking: `npm type-check`
+- Check for ESLint errors: `npm lint`
 - Clear Vite cache: `rm -rf node_modules/.vite`
 
 ### Performance Issues
 - Check React DevTools for unnecessary renders
-- Monitor bundle size with `pnpm build --analyze`
+- Monitor bundle size with `npm build --analyze`
 - Profile with browser DevTools
 
 ## Future Enhancements
