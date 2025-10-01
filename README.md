@@ -4,10 +4,12 @@ A full-stack news chatbot that leverages Retrieval-Augmented Generation (RAG) to
 
 ## Architecture
 
-Verge consists of two main components:
+Verge consists of three main components:
 
+- **News Engine** ([verge-news-engine-repository](https://github.com/MuhammedBasith/verge-news-engine)): 
+   Handles crawling, preprocessing, and embedding news articles into Pinecone’s vector database. 
 - **Frontend**: React-based chat interface with session management
-- **Backend**: Node.js API with vector search and AI integration
+- **Backend**: Node.js API with vector search and AI integration 
 
 ```
 Frontend (React + Vite) ←→ Backend (Node.js + Express)
